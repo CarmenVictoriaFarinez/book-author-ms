@@ -1,0 +1,47 @@
+
+services:
+  # Base de Datos SQL (PostgreSQL es estándar en 2025)
+  postgres_db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: user
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: library_db
+    ports:
+      - "5432:5432"
+
+  # Redis para comunicación entre servicios (sustituye a Kafka)
+  redis_broker:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+
+  # Microservicio de Autores
+  authors_service:
+    build: ./authors_service
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    volumes:
+      - ./authors_service:/code
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://user:password@postgres_db:5432/library_db
+      REDIS_URL: redis://redis_broker:6379/0
+    depends_on:
+      - postgres_db
+      - redis_broker
+
+  # Microservicio de Libros
+  books_service:
+    build: ./books_service
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8001 --reload
+    volumes:
+      - ./books_service:/code
+    ports:
+      - "8001:8001"
+    environment:
+      DATABASE_URL: postgresql://user:password@postgres_db:5432/library_db
+      REDIS_URL: redis://redis_broker:6379/0
+    depends_on:
+      - postgres_db
+      - redis_broker

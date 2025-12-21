@@ -1,10 +1,9 @@
 {
-    "name": "Backend Universal Fix",
-    "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
-    "features": {
-        "ghcr.io/devcontainers/features/docker-in-docker:2": {}
-    },
-    "forwardPorts": [8000, 8001],
-    "postStartCommand": "docker compose up -d --no-build"
+  "name": "Backend Universal Fix (Safe)",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {}
+  },
+  "forwardPorts": [8000, 8001, 5432, 6379],
+  "postStartCommand": "bash -lc \"echo '[SAFE MODE] Devcontainer listo. Ejecuta manualmente: docker compose up -d --no-build'\""
 }
-

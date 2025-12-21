@@ -6,8 +6,7 @@ class AuthorForBook(BaseModel):
     id: int
     name: str
     bio: Optional[str] = None
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
 
 class BookBase(BaseModel):
     title: str
@@ -19,11 +18,9 @@ class BookCreate(BookBase):
 
 class Book(BookBase):
     id: int
-    # Cuando obtienes un libro, quieres ver la lista completa de objetos Author
-    authors: List[AuthorForBook] = [] # Usamos la clase localmente definida
-
-    class Config:
-        from_attributes = True
+    model_config = ConfigDict(from_attributes=True)
+    # Cuando obtienes un libro, quieres ver la lista de autores
+    authors: List[AuthorForBook] = []
 
 class SetBookAuthorsRequest(BaseModel):
     author_ids: List[int]

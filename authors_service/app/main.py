@@ -1,28 +1,3 @@
-"""
-authors_service/app/main.py
-
-Microservicio de Autores (FastAPI) con soporte de consulta de libros asociados.
-
-Objetivo del ejercicio:
-- Un autor puede tener varios libros.
-- Un libro puede tener uno o varios autores.
-- Debe existir relación entre ambos elementos y se debe poder consultar y asignar
-  libros a autores y autores a libros.
-
-Decisión práctica (para este ejercicio):
-- Ambos microservicios comparten un único PostgreSQL (library_db).
-- Aun compartiendo BD, este servicio consulta libros asociados llamando al
-  microservicio de libros vía HTTP (BOOKS_SERVICE_URL). Esto demuestra integración
-  entre microservicios.
-
-Endpoints principales:
-- POST /authors/                 -> crea autor
-- GET  /authors/                 -> lista autores
-- GET  /authors/{author_id}      -> obtiene un autor por id (útil para validación desde books_service)
-- GET  /authors/{author_id}/books-> consulta libros asociados (vía books_service)
-- GET  /health                   -> healthcheck con verificación DB
-"""
-
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session
 from typing import List
@@ -31,9 +6,21 @@ import json
 import psycopg2
 import urllib.request
 import urllib.error
+import logging
+import time
+from uuid import uuid4
+from fastapi import Request
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from fastapi.responses import Response
 
 from app.database import engine, Base, get_db
 from app import models, schemas
+
+logger = logging.getLogger("app")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s"
+)
 
 # Crea tablas si no existen (para un ejercicio es aceptable; en producción usar Alembic)
 Base.metadata.create_all(bind=engine)
@@ -44,6 +31,47 @@ app = FastAPI(
     version="1.0.0",
 )
 
+REQUEST_COUNT = Counter(
+    "http_requests_total",
+    "Total HTTP requests",
+    ["method", "path", "status"]
+)
+
+REQUEST_LATENCY = Histogram(
+    "http_request_duration_seconds",
+    "HTTP request latency",
+    ["method", "path"]
+)
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    request_id = request.headers.get("X-Request-Id", str(uuid4()))
+    start = time.time()
+
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        logger.exception(
+            "request_id=%s method=%s path=%s error=%s",
+            request_id, request.method, request.url.path, str(exc)
+        )
+        raise
+
+    duration_ms = int((time.time() - start) * 1000)
+    logger.info(
+        "request_id=%s method=%s path=%s status=%s duration_ms=%s",
+        request_id, request.method, request.url.path, response.status_code, duration_ms
+    )
+    path = request.scope["path"]
+    REQUEST_COUNT.labels(request.method, path, str(response.status_code)).inc()
+    REQUEST_LATENCY.labels(request.method, path).observe((time.time() - start))
+
+    response.headers["X-Request-Id"] = request_id
+    return response
+
+@app.get("/metrics", include_in_schema=False)
+def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 # ---------------------------------------------------------------------
 # Helpers: comunicación con books_service (consulta)

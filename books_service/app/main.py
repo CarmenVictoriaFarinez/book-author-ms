@@ -1,26 +1,3 @@
-"""
-books_service/app/main.py
-
-Microservicio de Libros (FastAPI) con relación Muchos-a-Muchos Libros <-> Autores.
-
-Objetivo del ejercicio:
-- Un autor puede tener varios libros.
-- Un libro puede tener uno o varios autores.
-- Debe existir relación entre ambos y se debe poder consultar y asignar libros/autores.
-
-Decisión práctica (para este ejercicio):
-- Se comparte un único PostgreSQL (library_db) entre ambos microservicios.
-- Aun compartiendo BD, mantenemos comunicación entre servicios vía HTTP para validar
-  la existencia de autores (AUTHORS_SERVICE_URL), lo cual demuestra integración
-  entre microservicios.
-
-Endpoints clave:
-- POST /books/                 -> crea libro (opcionalmente asigna author_ids)
-- PUT  /books/{id}/authors     -> reemplaza autores del libro
-- GET  /books/by-author/{id}   -> devuelve libros de un autor (para authors_service)
-- GET  /health                 -> healthcheck con verificación DB
-"""
-
 from fastapi import FastAPI, Depends, HTTPException
 from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import select
@@ -29,9 +6,22 @@ import os
 import psycopg2
 import urllib.request
 import urllib.error
+import logging
+import time
+from uuid import uuid4
+from fastapi import Request
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
+from fastapi.responses import Response
 
 from app.database import engine, Base, get_db
 from app import models, schemas
+
+logger = logging.getLogger("app")
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s"
+)
+
 
 # Crea tablas si no existen (para un ejercicio es aceptable; en producción usar Alembic)
 Base.metadata.create_all(bind=engine)
@@ -41,6 +31,48 @@ app = FastAPI(
     description="Servicio encargado de la gestión de libros y su relación con autores",
     version="1.0.0",
 )
+
+REQUEST_COUNT = Counter(
+    "http_requests_total",
+    "Total HTTP requests",
+    ["method", "path", "status"]
+)
+
+REQUEST_LATENCY = Histogram(
+    "http_request_duration_seconds",
+    "HTTP request latency",
+    ["method", "path"]
+)
+
+@app.middleware("http")
+async def log_requests(request: Request, call_next):
+    request_id = request.headers.get("X-Request-Id", str(uuid4()))
+    start = time.time()
+
+    try:
+        response = await call_next(request)
+    except Exception as exc:
+        logger.exception(
+            "request_id=%s method=%s path=%s error=%s",
+            request_id, request.method, request.url.path, str(exc)
+        )
+        raise
+
+    duration_ms = int((time.time() - start) * 1000)
+    logger.info(
+        "request_id=%s method=%s path=%s status=%s duration_ms=%s",
+        request_id, request.method, request.url.path, response.status_code, duration_ms
+    )
+    path = request.scope["path"]
+    REQUEST_COUNT.labels(request.method, path, str(response.status_code)).inc()
+    REQUEST_LATENCY.labels(request.method, path).observe((time.time() - start))
+
+    response.headers["X-Request-Id"] = request_id
+    return response
+
+@app.get("/metrics", include_in_schema=False)
+def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 # ---------------------------------------------------------------------
@@ -95,7 +127,7 @@ def list_books(db: Session = Depends(get_db)):
         .order_by(models.Book.id)
     )
     return db.execute(stmt).scalars().unique().all()
-    
+
 # -------------------------------
 # POST /books (Crea libro)
 # -------------------------------

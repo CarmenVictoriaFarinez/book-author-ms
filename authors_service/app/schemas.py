@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 
 class AuthorBase(BaseModel):
@@ -10,9 +10,8 @@ class AuthorCreate(AuthorBase):
 
 class Author(AuthorBase):
     id: int
-    
-    class Config:
-        from_attributes = True # Esto permite que Pydantic lea modelos de SQLAlchemy
+    model_config = ConfigDict(from_attributes=True)
 
 class SetAuthorBooksRequest(BaseModel):
     book_ids: List[int]
+

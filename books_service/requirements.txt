@@ -3,3 +3,6 @@ uvicorn[standard]==0.30.6
 SQLAlchemy==2.0.32
 psycopg2-binary==2.9.9
 redis==5.0.8
+prometheus-client
+pytest
+httpx

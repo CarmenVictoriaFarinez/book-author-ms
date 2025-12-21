@@ -23,6 +23,7 @@ services:
     ports:
       - "8000:8000"
     environment:
+      PYTHONPATH: /code
       DATABASE_URL: postgresql://user:password@postgres_db:5432/library_db
       BOOKS_SERVICE_URL: http://books_service:8000
       REDIS_URL: redis://redis_broker:6379/0
@@ -38,6 +39,7 @@ services:
     ports:
       - "8001:8000"
     environment:
+      PYTHONPATH: /code
       DATABASE_URL: postgresql://user:password@postgres_db:5432/library_db
       AUTHORS_SERVICE_URL: http://authors_service:8000
       REDIS_URL: redis://redis_broker:6379/0

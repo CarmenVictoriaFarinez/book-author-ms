@@ -1,10 +1,11 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from typing import List, Optional
 
 # Definimos una versión local (ligera) del Autor solo para mostrarlo dentro del libro
 class AuthorForBook(BaseModel):
     id: int
     name: str
+    bio: Optional[str] = None
     class Config:
         from_attributes = True
 
@@ -23,3 +24,7 @@ class Book(BookBase):
 
     class Config:
         from_attributes = True
+
+class SetBookAuthorsRequest(BaseModel):
+    author_ids: List[int]
+

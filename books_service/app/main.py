@@ -22,7 +22,7 @@ Endpoints clave:
 """
 
 from fastapi import FastAPI, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import select
 from typing import List, Dict, Any
 import os
@@ -80,41 +80,91 @@ def _assert_author_exists(author_id: int) -> None:
 # Endpoints principales
 # ---------------------------------------------------------------------
 
+# -------------------------------
+# GET /books/ (listar libros)
+# -------------------------------
+@app.get("/books/", response_model=List[schemas.Book])
+def list_books(db: Session = Depends(get_db)):
+    """
+    Lista todos los libros.
+
+    Devuelve una lista de libros incluyendo sus autores (si los tiene).
+    """
+    stmt = (
+        select(models.Book)
+        .options(joinedload(models.Book.authors))
+        .order_by(models.Book.id)
+    )
+    return db.execute(stmt).scalars().unique().all()
+
+
+# -------------------------------
+# GET /books/{book_id} (detalle)
+# -------------------------------
+@app.get("/books/{book_id}", response_model=schemas.Book)
+def get_book(book_id: int, db: Session = Depends(get_db)):
+    """
+    Devuelve el detalle de un libro por ID.
+
+    Incluye lista de autores gracias a la relación ORM.
+    """
+    stmt = (
+        select(models.Book)
+        .options(joinedload(models.Book.authors))
+        .where(models.Book.id == book_id)
+    )
+    book = db.execute(stmt).scalars().unique().first()
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+    return book
+
+
+# -------------------------------
+# GET /books/{book_id}/authors
+# -------------------------------
+@app.get("/books/{book_id}/authors", response_model=List[schemas.AuthorForBook])
+def get_book_authors(book_id: int, db: Session = Depends(get_db)):
+    """
+    Devuelve SOLO los autores de un libro.
+    """
+    stmt = (
+        select(models.Book)
+        .options(joinedload(models.Book.authors))
+        .where(models.Book.id == book_id)
+    )
+    book = db.execute(stmt).scalars().unique().first()
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+    return book.authors
+
+
+# -------------------------------
+# POST /books (Crea libro)
+# -------------------------------
 @app.post("/books/", response_model=schemas.Book)
 def create_book(book: schemas.BookCreate, db: Session = Depends(get_db)):
     """
     Crea un libro.
 
-    Espera un body tipo (según tu schemas.BookCreate):
-    {
-      "title": "Mi libro",
-      "description": "...."
-    }
-
     Nota:
     - Valida autores vía authors_service (HTTP).
     - Inserta relación usando el ORM: book.authors.append(author)
     """
-    # 1) Crear libro
     db_book = models.Book(title=book.title, description=book.description)
     db.add(db_book)
     db.commit()
     db.refresh(db_book)
 
-    # 2) Asignar autores si vienen
     author_ids = getattr(book, "author_ids", None) or []
     author_ids = [int(a) for a in author_ids]
 
     if author_ids:
-        # Validar autores por microservicio
         for aid in author_ids:
             _assert_author_exists(aid)
 
-        # Recuperar autores de la BD (compartida) y enlazar por ORM
         for aid in author_ids:
             author = db.scalar(select(models.Author).where(models.Author.id == aid))
             if not author:
-                # Si compartes BD, normalmente esto NO debería ocurrir si authors_service crea autores aquí.
                 raise HTTPException(status_code=404, detail=f"Author {aid} not found in DB")
             db_book.authors.append(author)
 
@@ -124,25 +174,23 @@ def create_book(book: schemas.BookCreate, db: Session = Depends(get_db)):
     return db_book
 
 
+# -------------------------------
+# PUT /books/{book_id}/authors (replace)
+# -------------------------------
 @app.put("/books/{book_id}/authors")
-def set_book_authors(book_id: int, payload: Dict[str, Any], db: Session = Depends(get_db)):
+def set_book_authors(book_id: int, payload: schemas.SetBookAuthorsRequest, db: Session = Depends(get_db)):
     """
     Reemplaza la lista de autores de un libro (modo 'replace').
 
     Body esperado:
       { "author_ids": [1, 2, 3] }
-
-    Comportamiento:
-    - Si el libro no existe: 404
-    - Si author_ids no es lista: 422
-    - Si algún autor no existe: 404
-    - Reemplaza completamente las relaciones del libro.
     """
     book = db.scalar(select(models.Book).where(models.Book.id == book_id))
     if not book:
         raise HTTPException(status_code=404, detail="Book not found")
 
-    author_ids = payload.get("author_ids")
+    # ✅ Pydantic model -> se accede por atributo
+    author_ids = payload.author_ids
     if not isinstance(author_ids, list):
         raise HTTPException(status_code=422, detail="author_ids must be a list")
 
@@ -152,20 +200,25 @@ def set_book_authors(book_id: int, payload: Dict[str, Any], db: Session = Depend
     for aid in author_ids:
         _assert_author_exists(aid)
 
-    # Replace: limpiar relación y setear nueva
-    book.authors = []
+    # Traer autores de BD (compartida) y validar "missing"
+    stmt = select(models.Author).where(models.Author.id.in_(author_ids))
+    authors = db.execute(stmt).scalars().all()
+
+    found = {a.id for a in authors}
+    missing = [aid for aid in author_ids if aid not in found]
+    if missing:
+        raise HTTPException(status_code=404, detail=f"Authors not found in DB: {missing}")
+
+    # Replace completo
+    book.authors = authors
     db.commit()
 
-    for aid in author_ids:
-        author = db.scalar(select(models.Author).where(models.Author.id == aid))
-        if not author:
-            raise HTTPException(status_code=404, detail=f"Author {aid} not found in DB")
-        book.authors.append(author)
-
-    db.commit()
-    return {"book_id": book_id, "author_ids": author_ids}
+    return {"book_id": book_id, "author_ids": [a.id for a in book.authors]}
 
 
+# -------------------------------
+# GET /books/by-author/{author_id}
+# -------------------------------
 @app.get("/books/by-author/{author_id}")
 def get_books_by_author(author_id: int, db: Session = Depends(get_db)):
     """
@@ -181,6 +234,7 @@ def get_books_by_author(author_id: int, db: Session = Depends(get_db)):
     )
     rows = db.execute(stmt).mappings().all()
     return {"author_id": author_id, "books": list(rows)}
+
 
 
 # ---------------------------------------------------------------------

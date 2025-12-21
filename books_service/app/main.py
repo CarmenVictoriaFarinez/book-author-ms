@@ -79,7 +79,6 @@ def _assert_author_exists(author_id: int) -> None:
 # ---------------------------------------------------------------------
 # Endpoints principales
 # ---------------------------------------------------------------------
-
 # -------------------------------
 # GET /books/ (listar libros)
 # -------------------------------
@@ -96,48 +95,7 @@ def list_books(db: Session = Depends(get_db)):
         .order_by(models.Book.id)
     )
     return db.execute(stmt).scalars().unique().all()
-
-
-# -------------------------------
-# GET /books/{book_id} (detalle)
-# -------------------------------
-@app.get("/books/{book_id}", response_model=schemas.Book)
-def get_book(book_id: int, db: Session = Depends(get_db)):
-    """
-    Devuelve el detalle de un libro por ID.
-
-    Incluye lista de autores gracias a la relación ORM.
-    """
-    stmt = (
-        select(models.Book)
-        .options(joinedload(models.Book.authors))
-        .where(models.Book.id == book_id)
-    )
-    book = db.execute(stmt).scalars().unique().first()
-    if not book:
-        raise HTTPException(status_code=404, detail="Book not found")
-    return book
-
-
-# -------------------------------
-# GET /books/{book_id}/authors
-# -------------------------------
-@app.get("/books/{book_id}/authors", response_model=List[schemas.AuthorForBook])
-def get_book_authors(book_id: int, db: Session = Depends(get_db)):
-    """
-    Devuelve SOLO los autores de un libro.
-    """
-    stmt = (
-        select(models.Book)
-        .options(joinedload(models.Book.authors))
-        .where(models.Book.id == book_id)
-    )
-    book = db.execute(stmt).scalars().unique().first()
-    if not book:
-        raise HTTPException(status_code=404, detail="Book not found")
-    return book.authors
-
-
+    
 # -------------------------------
 # POST /books (Crea libro)
 # -------------------------------
@@ -215,6 +173,47 @@ def set_book_authors(book_id: int, payload: schemas.SetBookAuthorsRequest, db: S
 
     return {"book_id": book_id, "author_ids": [a.id for a in book.authors]}
 
+
+
+
+# -------------------------------
+# GET /books/{book_id} (detalle)
+# -------------------------------
+@app.get("/books/{book_id}", response_model=schemas.Book)
+def get_book(book_id: int, db: Session = Depends(get_db)):
+    """
+    Devuelve el detalle de un libro por ID.
+
+    Incluye lista de autores gracias a la relación ORM.
+    """
+    stmt = (
+        select(models.Book)
+        .options(joinedload(models.Book.authors))
+        .where(models.Book.id == book_id)
+    )
+    book = db.execute(stmt).scalars().unique().first()
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+    return book
+
+
+# -------------------------------
+# GET /books/{book_id}/authors
+# -------------------------------
+@app.get("/books/{book_id}/authors", response_model=List[schemas.AuthorForBook])
+def get_book_authors(book_id: int, db: Session = Depends(get_db)):
+    """
+    Devuelve SOLO los autores de un libro.
+    """
+    stmt = (
+        select(models.Book)
+        .options(joinedload(models.Book.authors))
+        .where(models.Book.id == book_id)
+    )
+    book = db.execute(stmt).scalars().unique().first()
+    if not book:
+        raise HTTPException(status_code=404, detail="Book not found")
+    return book.authors
 
 # -------------------------------
 # GET /books/by-author/{author_id}

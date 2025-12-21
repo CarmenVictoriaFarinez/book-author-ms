@@ -13,3 +13,6 @@ class Author(AuthorBase):
     
     class Config:
         from_attributes = True # Esto permite que Pydantic lea modelos de SQLAlchemy
+
+class SetAuthorBooksRequest(BaseModel):
+    book_ids: List[int]

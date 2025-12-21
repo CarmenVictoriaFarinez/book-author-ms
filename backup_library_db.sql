@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict DdJ0avewLMyd62rNIIXKFSLLzSRyIESF10rusRcSNkm1anpqCQo9MP9O4QmtWkw
+\restrict AGcVTa66g4eQQUE5e0XcQBdNIEDQsuA2SWENouUZsKcJrQCm49mgrstVNPy7mAJ
 
 -- Dumped from database version 16.11
 -- Dumped by pg_dump version 16.11
@@ -139,6 +139,10 @@ COPY public.book_authors (book_id, author_id) FROM stdin;
 1	2
 1	1
 1	3
+2	4
+2	3
+2	5
+3	3
 \.
 
 
@@ -227,5 +231,5 @@ ALTER TABLE ONLY public.book_authors
 -- PostgreSQL database dump complete
 --
 
-\unrestrict DdJ0avewLMyd62rNIIXKFSLLzSRyIESF10rusRcSNkm1anpqCQo9MP9O4QmtWkw
+\unrestrict AGcVTa66g4eQQUE5e0XcQBdNIEDQsuA2SWENouUZsKcJrQCm49mgrstVNPy7mAJ
 

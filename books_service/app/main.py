@@ -83,13 +83,12 @@ def _assert_author_exists(author_id: int) -> None:
 @app.post("/books/", response_model=schemas.Book)
 def create_book(book: schemas.BookCreate, db: Session = Depends(get_db)):
     """
-    Crea un libro y opcionalmente lo relaciona con autores.
+    Crea un libro.
 
     Espera un body tipo (según tu schemas.BookCreate):
     {
       "title": "Mi libro",
-      "description": "....",
-      "author_ids": [1, 3]
+      "description": "...."
     }
 
     Nota:

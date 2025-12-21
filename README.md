@@ -131,7 +131,7 @@ Ver logs en vivo:
 docker compose logs -f authors_service
 docker compose logs -f books_service
 
-## 8) ## Métricas (Prometheus)
+## 8) Métricas (Prometheus)
 
 Cada microservicio expone métricas en:
 
@@ -144,7 +144,7 @@ Cada microservicio expone métricas en:
 curl -s http://localhost:8000/metrics | head -n 30
 curl -s http://localhost:8001/metrics | head -n 30
 
-## 9) ## Tests (pytest)
+## 9) Tests (pytest)
 
 Los tests se ejecutan dentro de los contenedores para asegurar que corren en el mismo entorno que Docker.
 
@@ -152,7 +152,7 @@ Los tests se ejecutan dentro de los contenedores para asegurar que corren en el 
 docker compose exec authors_service pytest -q
 docker compose exec books_service pytest -q
 
-## 10) ## Endpoints
+## 10) Endpoints
 
 ### Authors Service (Puerto 8000)
 
@@ -181,7 +181,7 @@ docker compose exec books_service pytest -q
   ```json
   { "book_ids": [1, 2, 3] }
 
-  ## Endpoints operativos
+  Endpoints operativos
 
 - `GET /health`  
   Healthcheck con verificación de conexión a DB.

@@ -176,10 +176,10 @@ docker compose exec books_service pytest -q
   Lista libros asociados a un autor (consultando al microservicio de libros).
 
 - `PUT /authors/{author_id}/books`  
-  Asigna (agrega) libros a un autor.  
   **Body**
   ```json
   { "book_ids": [1, 2, 3] }
+  Asigna (agrega) libros a un autor. 
 
   Endpoints operativos
 

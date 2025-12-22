@@ -46,6 +46,7 @@ services:
     depends_on:
       - postgres_db
       - redis_broker
+      - authors_service 
 
 volumes:
   postgres_data: {}

@@ -23,8 +23,15 @@ logging.basicConfig(
 )
 
 
-# Crea tablas si no existen (para un ejercicio es aceptable; en producción usar Alembic)
-Base.metadata.create_all(bind=engine)
+try:
+    # checkfirst=True es el comportamiento por defecto, 
+    # pero el try/except captura el choque de concurrencia
+    Base.metadata.create_all(bind=engine)
+    logger.info("Tablas verificadas/creadas correctamente.")
+except SQLAlchemyError as e:
+    # Si hay un error de "Duplicate Object" o similar, 
+    # lo ignoramos porque significa que las tablas ya están ahí
+    logger.warning(f"Aviso en DB: Las tablas ya existen o están siendo creadas: {e}")
 
 app = FastAPI(
     title="Microservicio de Libros",

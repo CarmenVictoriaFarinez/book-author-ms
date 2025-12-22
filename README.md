@@ -31,8 +31,8 @@ Servicios incluidos:
   - Persistencia SQL con volumen Docker.
 
 - *(Opcional)* **redis_broker** (Redis)
-  - Incluido como infraestructura opcional; en esta entrega no se implementa lógica asíncrona.
-  - Se puede retirar sin afectar la funcionalidad actual (si el evaluador prefiere solo SQL + HTTP).
+  - Incluido como infraestructura proyectada para escalabilidad.
+  **Justificación:** Se previó inicialmente la implementación de lógica asíncrona para la sincronización de datos. Se eligió Redis sobre Kafka por su ligereza y menor complejidad operativa, curva de aprendizaje, y porque Redis es mucho más rápido para notificaciones en tiempo real entre servicios pequeños.
 
 ---
 
